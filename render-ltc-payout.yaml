@@ -4,10 +4,9 @@ services:
     runtime: docker
     plan: 1c-2g
     region: oregon
-    autoDeployTrigger: off
+    autoDeployTrigger: "off"
     dockerfilePath: ./infra/ltc-payout/Dockerfile
     dockerContext: ./infra/ltc-payout
-    maxShutdownDelaySeconds: 120
     disk:
       name: muck-ltc-payout-data
       mountPath: /var/data
