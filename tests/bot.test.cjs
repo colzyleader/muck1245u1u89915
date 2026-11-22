@@ -695,3 +695,14 @@ test('bot: hosting settings choose where the data is kept and whether the one-co
   assert.match(blueprint,/mountPath: \/var\/data/);
   assert.doesNotMatch(blueprint,/[A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}/);
 });
+
+test('hosted wallet server has no arcade commands or playable old buttons',()=>{
+  const bot=fresh({arcadeEnabled:false});
+  assert.deepEqual(bot.definitions().map(command=>command.name).sort(),['help','server']);
+  for(const command of ['$bal','$balance','$refill','$tip','$coinflip','$depo','$b']){
+    assert.equal(type(bot,colin,command),null);
+  }
+  assert.match(text(run(bot,colin,'help')),/\$depo LTC/);
+  assert.match(text(click(bot,colin,'a:'+colin.id+':coinflip')),/retired/);
+  assert.deepEqual(bot.store.data.players,{});
+});

@@ -81,7 +81,7 @@ const choices=list=>list.map(item=>Array.isArray(item)?{name:item[0],value:item[
 const rankIndex=wagered=>{let index=-1;RANKS.forEach((rank,i)=>{if(wagered>=rank.at)index=i});return index};
 
 function createBot({token='',appId='',api='https://discord.com/api/v10',gateway='wss://gateway.discord.gg',guildId='',siteUrl='',prefix='$',
-  storeFile='',fetchImpl=globalThis.fetch,WebSocketImpl=globalThis.WebSocket,log=console,flipDelay=3000,now=Date.now,pictures=true,lock:useLock=true}={}){
+  storeFile='',fetchImpl=globalThis.fetch,WebSocketImpl=globalThis.WebSocket,log=console,flipDelay=3000,now=Date.now,pictures=true,lock:useLock=true,arcadeEnabled=true}={}){
   const {Arcade,wheelSlots,towerModes,reds}=loadSite();
   const credit=Arcade.credit,redSet=new Set(reds);
   const store=createStore(storeFile),data=store.data;
@@ -616,7 +616,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     '**It is a game.** Credits are free play money and a big balance means nothing outside this server. Take breaks, and stop when it stops being fun.',
     '',
     'The server’s admins can remove messages or access for anyone who breaks these rules.'].join('\n')});
-  const LAYOUT=[
+  const arcadeLayout=[
     {name:'📌 INFO',lock:'read',channels:[
       {name:'👋・welcome',topic:'What DriftLobby is and how to start.',post:welcomeEmbed},{name:'📜・rules',topic:'The house rules.',post:rulesEmbed},{name:'📖・how-to-play',topic:'Every game and every command.',post:guideEmbeds},
       {name:'🎖・roles',topic:'Ranks and high roller roles.',post:ranksEmbed}]},
@@ -626,6 +626,21 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     {name:'💬 LOUNGE',channels:[{name:'💬・general',topic:'Talk about anything.'},{name:'🎁・free-credits',was:['🎁・daily-claims'],topic:prefix+'refill tops you up for free below '+REFILL_UNDER+'. '+prefix+'tip sends credits to a friend.'}]},
     {name:'🎩 HIGH ROLLERS',lock:'rollers',channels:[
       {name:'🎩・high-roller-lounge',topic:'For High Rollers and Whales.'},{name:'🐋・whale-table',topic:'Whales only.',only:'whale'}]}];
+  const walletHelp=()=>({color:COLORS.brand,title:'DriftLobby',description:
+    'Use `$depo LTC` with the deposit bot to get a Litecoin address by DM. Use `$b` to see your confirmed deposits.'});
+  const walletPage=(title,description)=>()=>({color:COLORS.brand,title,description});
+  const walletLayout=[
+    {name:'📌 INFO',lock:'read',channels:[
+      {name:'👋・welcome',topic:'Welcome to DriftLobby.',post:walletPage('👋 Welcome to DriftLobby',walletHelp().description)},
+      {name:'📜・rules',topic:'Server rules.',post:walletPage('📜 Rules','Respect other members. No harassment, spam, sharing private information, scams, or wagering.')},
+      {name:'📖・how-to-play',topic:'Discord command help.',post:()=>[
+        ...['📖 How to play','⚡ Quick games','🎮 Button games'].map(title=>({color:COLORS.brand,title,description:'Arcade games are retired on Discord.'})),
+        {color:COLORS.brand,title:'🧾 Every command',description:walletHelp().description}
+      ]},
+      {name:'🎖・roles',topic:'Server roles.',post:walletPage('🎖 Ranks and roles','Contact a server moderator with questions about roles.')}
+    ]},
+    {name:'💬 LOUNGE',channels:[{name:'💬・general',topic:'Talk about anything.'}]}
+  ];
   // Puts a channel's info pages in place: a page the bot has already posted is edited if its text
   // has changed, and a missing one is posted. Pages are matched by their title.
   async function postPages(channel,embeds){
@@ -657,7 +672,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     }
     const saved=data.guilds[guild]??={roles:{},channels:{}},made={roles:0,channels:0,kept:0,renamed:0,pages:0};
     // Created top to bottom: each new role is added just above @everyone, pushing earlier ones up.
-    for(const tier of [...ROLLERS].reverse().concat([...RANKS].reverse())){
+    for(const tier of arcadeEnabled?[...ROLLERS].reverse().concat([...RANKS].reverse()):[]){
       let role=existingRoles.find(found=>found.name===tier.name);
       if(role)made.kept++;
       else{role=await rest('POST','/guilds/'+guild+'/roles',{name:tier.name,color:tier.color,hoist:true,mentionable:false,permissions:'0'});made.roles++}
@@ -668,7 +683,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     const overwrites=(lock,only)=>lock==='read'?[{...everyone,deny:String(PERMS.send)},bot]:
       lock==='rollers'?[{...everyone,deny:String(PERMS.view)},...ROLLERS.filter(tier=>!only||tier.key===only).map(tier=>({id:saved.roles[tier.key],type:0,allow:String(PERMS.view)})),bot]:undefined;
     const existing=await rest('GET','/guilds/'+guild+'/channels');
-    for(const group of LAYOUT){
+    for(const group of arcadeEnabled?arcadeLayout:walletLayout){
       let category=existing.find(channel=>channel.type===4&&channel.name===group.name);
       if(category)made.kept++;
       else{category=await rest('POST','/guilds/'+guild+'/channels',{name:group.name,type:4,permission_overwrites:overwrites(group.lock)});made.channels++}
@@ -690,9 +705,10 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     return {color:COLORS.win,title:'✅ Server ready',description:[
       'Made **'+made.roles+'** roles and **'+made.channels+'** channels'+(made.kept?' ('+made.kept+' were already here and were kept)':'')+'.'+(made.renamed?' Renamed '+made.renamed+' of my channels.':'')+(made.pages?' Posted or updated '+made.pages+' info pages.':''),
       '',
+      ...(arcadeEnabled?[
       '• Rank roles are handed out as people play: '+RANKS.map(rank=>rank.name).join(', ')+'.',
       '• '+ROLLERS.map(tier=>tier.name).join(' and ')+' open the high roller channels.',
-      '• Keep my own role above those roles in Server Settings → Roles, or I cannot hand them out.',
+      '• Keep my own role above those roles in Server Settings → Roles, or I cannot hand them out.']:[]),
       '• Nothing of yours was deleted or changed. You can rename, move or remove anything I made.'].join('\n')};
   }
   commands.server={adminOnly:true,guildOnly:true,memberPermissions:String(PERMS.manageGuild),description:'Server tools for xyzwrl.',
@@ -711,11 +727,19 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
       return reply;
     }};
 
+  if(!arcadeEnabled){
+    for(const name of Object.keys(commands)){
+      if(name!=='help'&&name!=='server')delete commands[name];
+    }
+    commands.help={description:'Show DriftLobby’s Discord commands.',run:()=>say(walletHelp())};
+  }
+
   // ---------- Roles for playing ----------
   const standing=id=>{const p=data.players[id];return {rank:rankIndex(p?.wagered||0),top:p?.topBet||0}};
   // After a command: give the member the rank and high-roller roles they have earned in this
   // server, take away a rank they have moved past, and announce a step up.
   async function syncRoles({guild,user,roles,before,announce}){
+    if(!arcadeEnabled)return;
     const p=data.players[user.id],setup=guild&&data.guilds[guild];
     if(!p||!setup?.roles)return;
     const rank=rankIndex(p.wagered),want=new Set();
@@ -796,7 +820,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     const user=interaction.member?.user||interaction.user;
     if(!user||!/^\d{5,25}$/.test(String(user.id)))return whisper('Could not tell who you are.');
     if(user.bot)return whisper('Bots do not play.');
-    if(interaction.type===3)return press(interaction,user);
+    if(interaction.type===3)return arcadeEnabled?press(interaction,user):whisper('Arcade buttons are retired.');
     if(interaction.type!==2)return whisper('That is not something this bot handles.');
     const name=interaction.data?.name;
     if(!Object.hasOwn(commands,name))return whisper('Unknown command. Try '+prefix+'help.');
@@ -805,7 +829,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
       if(typeof option.name!=='string'||['__proto__','constructor'].includes(option.name))continue;
       if(option.type===1)opts._sub=option.name;else opts[option.name]=option.value;
     }
-    return launch(name,{user,id:user.id,opts,p:player(user),resolved:interaction.data.resolved,token:interaction.token,
+    return launch(name,{user,id:user.id,opts,p:arcadeEnabled?player(user):null,resolved:interaction.data.resolved,token:interaction.token,
       guild:interaction.guild_id,roles:interaction.member?.roles,permissions:interaction.member?.permissions??(interaction.guild_id?'0':null)});
   }
 
@@ -854,7 +878,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     if(name==='setup')words.unshift('setup');
     name=ALIASES[name]||name;
     if(!Object.hasOwn(commands,name))return null;
-    const p=player(user),opts={},options=commands[name].options||[];
+    const p=arcadeEnabled?player(user):null,opts={},options=commands[name].options||[];
     for(const word of words.slice(0,12)){
       const sub=options.find(option=>option.type===1&&option.name===word.toLowerCase());
       if(sub){opts._sub=sub.name;continue}
@@ -1047,7 +1071,7 @@ if(require.main===module){
   try{process.loadEnvFile(path.join(__dirname,'.env'))}catch{}
   const settings=settingsFromEnv();
   try{fs.mkdirSync(path.dirname(settings.storeFile),{recursive:true})}catch{}
-  const bot=createBot(settings);
+  const bot=createBot({...settings,arcadeEnabled:false});
   bot.start().catch(error=>{console.error(error.message);process.exit(1)});
   for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{bot.close();process.exit(0)});
 }
