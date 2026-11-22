@@ -1,7 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {createBot,RANKS,ROLLERS}=require('../server/discord-bot.js');
+const {createBot,settingsFromEnv,RANKS,ROLLERS}=require('../server/discord-bot.js');
 const {decodePng}=require('../server/card-images.js');
 
 const quiet={log(){},error(){}};
@@ -660,4 +660,32 @@ test('bot: a flip that is over has its message deleted twenty minutes later',asy
   bot.close();
   await new Promise(done=>setTimeout(done,10));
   fs.rmSync(dir,{recursive:true});
+});
+
+test('bot: hosting settings choose where the data is kept and whether the one-copy lock is used',async()=>{
+  const home=settingsFromEnv({DISCORD_BOT_TOKEN:'t',DISCORD_CLIENT_ID:'42'});
+  assert.equal(home.storeFile,path.join(__dirname,'..','server','bot-data.json'));
+  assert.equal(home.lock,true);assert.equal(home.prefix,'$');assert.equal(home.token,'t');assert.equal(home.appId,'42');
+  const hosted=settingsFromEnv({DATA_DIR:'/var/data',BOT_LOCK:'off',BOT_PREFIX:'!'});
+  assert.equal(hosted.storeFile,path.join('/var/data','bot-data.json'));
+  assert.equal(hosted.lock,false);assert.equal(hosted.prefix,'!');
+  // With the lock off, a leftover lock file from a copy that looks alive does not stop the bot starting.
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'drift-host-')),file=path.join(dir,'bot-data.json');
+  fs.writeFileSync(file+'.lock',String(process.ppid));
+  class FakeSocket{constructor(){}send(){}close(){}}
+  const {fetchImpl}=recorder(call=>call.method==='PUT'?call.body:{});
+  const bot=createBot({log:quiet,token:'t',appId:'42',storeFile:file,lock:false,fetchImpl,WebSocketImpl:FakeSocket,pictures:false});
+  await bot.start();
+  run(bot,colin,'balance');
+  bot.close();
+  assert.equal(JSON.parse(fs.readFileSync(file,'utf8')).players[colin.id].credits,1000);
+  assert.equal(fs.readFileSync(file+'.lock','utf8'),String(process.ppid));
+  fs.rmSync(dir,{recursive:true});
+  // The Blueprint keeps the token out of the repository and puts the data on the disk.
+  const blueprint=fs.readFileSync(path.join(__dirname,'..','render.yaml'),'utf8');
+  assert.match(blueprint,/type: worker/);
+  assert.match(blueprint,/key: DISCORD_BOT_TOKEN\n\s+sync: false/);
+  assert.match(blueprint,/key: DATA_DIR\n\s+value: \/var\/data/);
+  assert.match(blueprint,/mountPath: \/var\/data/);
+  assert.doesNotMatch(blueprint,/[A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}/);
 });

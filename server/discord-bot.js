@@ -80,7 +80,7 @@ const choices=list=>list.map(item=>Array.isArray(item)?{name:item[0],value:item[
 const rankIndex=wagered=>{let index=-1;RANKS.forEach((rank,i)=>{if(wagered>=rank.at)index=i});return index};
 
 function createBot({token='',appId='',api='https://discord.com/api/v10',gateway='wss://gateway.discord.gg',guildId='',siteUrl='',prefix='$',
-  storeFile='',fetchImpl=globalThis.fetch,WebSocketImpl=globalThis.WebSocket,log=console,flipDelay=3000,now=Date.now,pictures=true}={}){
+  storeFile='',fetchImpl=globalThis.fetch,WebSocketImpl=globalThis.WebSocket,log=console,flipDelay=3000,now=Date.now,pictures=true,lock:useLock=true}={}){
   const {Arcade,wheelSlots,towerModes,reds}=loadSite();
   const credit=Arcade.credit,redSet=new Set(reds);
   const store=createStore(storeFile),data=store.data;
@@ -1000,7 +1000,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
   // Two copies of the bot would each answer every command and keep separate rounds, so a second
   // copy refuses to start while the first is alive.
   function takeLock(){
-    if(!storeFile)return;
+    if(!storeFile||!useLock)return;
     const file=storeFile+'.lock';
     let other=0;
     try{other=Number(fs.readFileSync(file,'utf8'))}catch{}
@@ -1030,12 +1030,22 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
   return {start,close,handle,handleMessage,sweep,definitions,setupServer,syncRoles,inviteLink,store,rounds,flips};
 }
 
-module.exports={createBot,loadSite,RANKS,ROLLERS};
+// The bot's settings, read from the environment: server/.env on your own machine, the host's own
+// settings when it is hosted. DATA_DIR is the folder balances are kept in; on a host that wipes its
+// storage on every restart, point it at a persistent disk. BOT_LOCK=off skips the one-copy lock,
+// for a host that already runs exactly one copy (a leftover lock file there could block a restart).
+function settingsFromEnv(env=process.env){
+  return {token:env.DISCORD_BOT_TOKEN||'',appId:env.DISCORD_CLIENT_ID||'',guildId:env.DISCORD_GUILD_ID||'',siteUrl:env.SITE_URL||'',prefix:env.BOT_PREFIX??'$',
+    storeFile:path.join(env.DATA_DIR||__dirname,'bot-data.json'),lock:env.BOT_LOCK!=='off'};
+}
+
+module.exports={createBot,loadSite,settingsFromEnv,RANKS,ROLLERS};
 
 if(require.main===module){
   try{process.loadEnvFile(path.join(__dirname,'.env'))}catch{}
-  const bot=createBot({token:process.env.DISCORD_BOT_TOKEN||'',appId:process.env.DISCORD_CLIENT_ID||'',guildId:process.env.DISCORD_GUILD_ID||'',
-    siteUrl:process.env.SITE_URL||'',prefix:process.env.BOT_PREFIX??'$',storeFile:path.join(__dirname,'bot-data.json')});
+  const settings=settingsFromEnv();
+  try{fs.mkdirSync(path.dirname(settings.storeFile),{recursive:true})}catch{}
+  const bot=createBot(settings);
   bot.start().catch(error=>{console.error(error.message);process.exit(1)});
   for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{bot.close();process.exit(0)});
 }

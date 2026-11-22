@@ -1,0 +1,27 @@
+# Render Blueprint: runs the Discord bot around the clock.
+# A background worker (not a web service: the bot opens no port) with a small disk for its data.
+# The bot token is not in this file. Render asks for DISCORD_BOT_TOKEN when the Blueprint is set up.
+services:
+  - type: worker
+    name: muck-bot
+    runtime: node
+    plan: starter
+    buildCommand: npm install --prefix server --omit=dev
+    startCommand: node server/discord-bot.js
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: DISCORD_CLIENT_ID
+        value: "1573861693820502149"
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      # Balances, ranks and stakes in play live on the disk, so restarts and deploys keep them.
+      - key: DATA_DIR
+        value: /var/data
+      # Render runs exactly one copy of a service that has a disk.
+      - key: BOT_LOCK
+        value: "off"
+    disk:
+      name: muck-bot-data
+      mountPath: /var/data
+      sizeGB: 1
