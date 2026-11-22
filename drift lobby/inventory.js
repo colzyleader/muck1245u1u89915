@@ -6,7 +6,7 @@ import { wordlist } from '@scure/bip39/wordlists/english';
 import { publicKeys } from './derive.js';
 
 const count=Number(process.argv[2] || 25);
-if(!Number.isInteger(count)||count<1||count>10000||!process.argv[3]) throw Error('Usage: npm run inventory -- 25 NEW_BACKUP_DIRECTORY');
+if(!Number.isInteger(count)||count<1||count>20000||!process.argv[3]) throw Error('Usage: npm run inventory -- 25 NEW_BACKUP_DIRECTORY');
 const dir=resolve(process.argv[3]); mkdirSync(dir,{mode:0o700});
 const inventory=[];
 for(let i=0;i<count;i++){
