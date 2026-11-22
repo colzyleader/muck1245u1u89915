@@ -7,3 +7,11 @@ server/data.json
 server/bot-data.json
 server/bot-data.json.tmp
 server/bot-data.json.lock
+
+# The deposit bot: its token, its database and any wallet recovery words never go in the repository.
+drift lobby/.env
+drift lobby/data/
+*.sqlite
+*.sqlite-*
+*.words
+offline-wallet-backup/

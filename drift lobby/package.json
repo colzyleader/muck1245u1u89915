@@ -1,0 +1,22 @@
+{
+  "name": "pocket-depo-bot",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "test": "node --test test.js",
+    "inventory": "node inventory.js"
+  },
+  "dependencies": {
+    "discord.js": "14.21.0",
+    "@scure/bip39": "1.6.0",
+    "@scure/bip32": "1.7.0",
+    "@scure/base": "1.2.6",
+    "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.8.0"
+  }
+}
