@@ -4,7 +4,11 @@ export async function handleMessage(m,store,check){
  if(m.author.bot)return;
  const [cmd,symbol='LTC',...extra]=m.content.trim().split(/\s+/);
  if(cmd.toLowerCase()==='$withdraw'){
-   await m.reply('Automatic withdrawals are offline. No withdrawal was requested or sent. Use $b to view your confirmed deposits.');
+   await m.reply({
+     content:'Automatic withdrawals are offline. No withdrawal was requested or sent. Use $b to view your confirmed deposits.',
+     nonce:'wd:'+m.id,
+     enforceNonce:true
+   });
    return;
  }
  if(cmd.toLowerCase()==='$b'){
