@@ -165,6 +165,14 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
   // ---------- Games that finish in one message ----------
   function instant(ctx,title,returned,lines,footer,art={}){
     const {p,user}=ctx,stake=ctx.opts.bet;
+    if(!arcadeEnabled){
+      const outcome=['wheel','plinko'].includes(ctx.name)?'':returned===0?'You lost.':
+        returned===stake&&['war','rps'].includes(ctx.name)?'Draw.':'You won!';
+      const embed=card(user,title,tone(stake,returned),[...lines,outcome].filter(Boolean)),files=[];
+      if(art.thumb)thumb(embed,files,art.thumb);
+      if(art.groups&&!tablePicture(embed,files,art.groups,true))embed.description=art.text+'\n'+embed.description;
+      return say(embed,[],files);
+    }
     p.credits=credit(p.credits-stake);tally(p,stake,returned);
     const embed=card(user,title,tone(stake,returned),[...lines,'',resultLine(p,stake,returned)],footer),files=[];
     if(art.thumb)thumb(embed,files,art.thumb);
@@ -186,7 +194,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
       const won=direction==='under'?roll<target:roll>target;
       // A strip from 0 to 100 with the winning side lit and a marker where the roll landed.
       const at=Math.min(19,Math.floor(roll/5)),bar=Array.from({length:20},(_,cell)=>cell===at?'🔘':(direction==='under'?cell*5<target:cell*5>=target)?'🟩':'⬛').join('');
-      return instant(ctx,'🎲 Dice',won?odds.returned:0,['Rolled **'+roll.toFixed(2)+'** · you needed '+direction+' '+target+'.',bar,'A win here returns '+fmt(odds.returned)+'.'],sizedFooter(bet,odds.fair),{thumb:'dice'});
+      return instant(ctx,'🎲 Dice',won?odds.returned:0,['Rolled **'+roll.toFixed(2)+'** · you needed '+direction+' '+target+'.',bar,arcadeEnabled?'A win here returns '+fmt(odds.returned)+'.':null],sizedFooter(bet,odds.fair),{thumb:'dice'});
     }};
   commands.limbo={sized:true,description:'Pick a target multiplier and hope the rocket reaches it. Bigger bets win less often: /guide.',
     options:[betOption,{type:10,name:'target',description:'Target multiplier (2× if left out)',choices:[1.5,2,3,5,10,25,50,100].map(v=>({name:v+'×',value:v}))}],
@@ -218,10 +226,10 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
       {type:4,name:'number',description:'The number, when you pick Number (0 to 36)',min_value:0,max_value:36}],
     run(ctx){
       const {bet,pick}=ctx.opts,straight=pick==='Number';
-      if(straight&&ctx.opts.number==null)return whisper('Add the number (0 to 36) when you pick Number, for example `'+prefix+'roulette 50 number 17`.');
+      if(straight&&ctx.opts.number==null)return whisper('Add the number (0 to 36) when you pick Number, for example `'+prefix+'roulette '+(arcadeEnabled?'50 ':'')+'number 17`.');
       const n=Arcade.random(37),red=redSet.has(n);
       const won=straight?n===ctx.opts.number:n!==0&&{Red:red,Black:!red,Odd:n%2===1,Even:n%2===0}[pick];
-      return instant(ctx,'🎰 Roulette',won?bet*(straight?36:2):0,['The ball lands on '+(n===0?'🟢':red?'🔴':'⚫')+' **'+n+'**','You bet on '+(straight?'number '+ctx.opts.number:pick)+'.'],flatFooter,{thumb:'roulette'});
+      return instant(ctx,'🎰 Roulette',won?bet*(straight?36:2):0,['The ball lands on '+(n===0?'🟢':red?'🔴':'⚫')+' **'+n+'**',(arcadeEnabled?'You bet on ':'You picked ')+(straight?'number '+ctx.opts.number:pick)+'.'],flatFooter,{thumb:'roulette'});
     }};
   commands.plinko={description:'Drop a ball through the pegs. The slot it lands in sets the return.',
     options:[betOption,{type:4,name:'rows',description:'Peg rows (12 if left out)',choices:choices([8,12,16])},{type:3,name:'risk',description:'Board risk (Medium if left out)',choices:choices(['Low','Medium','High'])}],
@@ -627,14 +635,14 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     {name:'🎩 HIGH ROLLERS',lock:'rollers',channels:[
       {name:'🎩・high-roller-lounge',topic:'For High Rollers and Whales.'},{name:'🐋・whale-table',topic:'Whales only.',only:'whale'}]}];
   const walletHelp=()=>({color:COLORS.brand,title:'DriftLobby',description:
-    'Use `$depo LTC` with the deposit bot to get a Litecoin address by DM. Use `$b` to see your confirmed deposits.'});
+    'Free games: `$coinflip heads`, `$dice under 50`, `$roulette red`, `$rps rock`, `$war`, `$wheel`, `$limbo 2`, `$plinko`. Use `$depo LTC` and `$b` with the deposit bot.'});
   const walletPage=(title,description)=>()=>({color:COLORS.brand,title,description});
   const walletLayout=[
     {name:'📌 INFO',lock:'read',channels:[
       {name:'👋・welcome',topic:'Welcome to DriftLobby.',post:walletPage('👋 Welcome to DriftLobby',walletHelp().description)},
       {name:'📜・rules',topic:'Server rules.',post:walletPage('📜 Rules','Respect other members. No harassment, spam, sharing private information, scams, or wagering.')},
       {name:'📖・how-to-play',topic:'Discord command help.',post:()=>[
-        ...['📖 How to play','⚡ Quick games','🎮 Button games'].map(title=>({color:COLORS.brand,title,description:'Arcade games are retired on Discord.'})),
+        ...['📖 How to play','⚡ Quick games','🎮 Button games'].map(title=>({color:COLORS.brand,title,description:walletHelp().description})),
         {color:COLORS.brand,title:'🧾 Every command',description:walletHelp().description}
       ]},
       {name:'🎖・roles',topic:'Server roles.',post:walletPage('🎖 Ranks and roles','Contact a server moderator with questions about roles.')}
@@ -753,8 +761,17 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     }};
 
   if(!arcadeEnabled){
+    const freeGames={
+      coinflip:'Call heads or tails.',dice:'Roll under or over your target.',roulette:'Pick a color, parity, or number.',
+      war:'Draw a card against the dealer.',rps:'Play rock, paper, scissors.',wheel:'Spin the wheel.',
+      limbo:'Pick a target multiplier.',plinko:'Drop a ball through the board.'
+    };
     for(const name of Object.keys(commands)){
-      if(name!=='help'&&name!=='server')delete commands[name];
+      if(name==='help'||name==='server')continue;
+      if(!Object.hasOwn(freeGames,name)){delete commands[name];continue;}
+      const game=commands[name];
+      commands[name]={description:freeGames[name],options:game.options.filter(option=>option.name!=='bet'),
+        run:ctx=>game.run({...ctx,opts:{...ctx.opts,bet:1}})};
     }
     commands.help={description:'Show DriftLobby’s Discord commands.',run:()=>say(walletHelp())};
   }
@@ -860,6 +877,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
         }
       }else opts[option.name]=option.value;
     }
+    if(!arcadeEnabled)delete opts.bet;
     return launch(name,{user,id:user.id,opts,p:arcadeEnabled?player(user):null,resolved:interaction.data.resolved,token:interaction.token,
       guild:interaction.guild_id,roles:interaction.member?.roles,permissions:interaction.member?.permissions??(interaction.guild_id?'0':null)});
   }

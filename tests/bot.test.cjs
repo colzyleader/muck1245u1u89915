@@ -696,11 +696,16 @@ test('bot: hosting settings choose where the data is kept and whether the one-co
   assert.doesNotMatch(blueprint,/[A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}/);
 });
 
-test('hosted wallet server has no arcade commands or playable old buttons',()=>{
+test('hosted server runs free quick games without an arcade balance',()=>{
   const bot=fresh({arcadeEnabled:false});
-  assert.deepEqual(bot.definitions().map(command=>command.name).sort(),['help','server']);
-  for(const command of ['$bal','$balance','$refill','$tip','$coinflip','$depo','$b']){
+  assert.deepEqual(bot.definitions().map(command=>command.name).sort(),['coinflip','dice','help','limbo','plinko','roulette','rps','server','war','wheel']);
+  for(const command of ['$bal','$balance','$refill','$tip','$depo','$b']){
     assert.equal(type(bot,colin,command),null);
+  }
+  for(const command of ['$coinflip heads','$dice under 50','$roulette red','$rps rock','$war','$wheel','$limbo 2','$plinko']){
+    const reply=type(bot,colin,command);
+    assert.ok(reply?.data.embeds?.length,command);
+    assert.doesNotMatch(text(reply),/Balance|credits|returns/i);
   }
   assert.match(text(run(bot,colin,'help')),/\$depo LTC/);
   assert.match(text(click(bot,colin,'a:'+colin.id+':coinflip')),/retired/);
