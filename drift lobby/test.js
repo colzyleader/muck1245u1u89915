@@ -61,3 +61,28 @@ test('Solana and EVM require a successful native transfer and the configured dep
  }
  }finally{global.fetch=original;if(apiKey===undefined)delete process.env.ETHERSCAN_API_KEY;else process.env.ETHERSCAN_API_KEY=apiKey;store.close();}
 });
+
+test('DM deposit assignment credits the same member in the server exactly once',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'depo-total-')),path=join(dir,'db');
+ let store=openStore(path);
+ const dms=[],replies=[];
+ const member={author:{id:'alice',send:async s=>dms.push(s)},inGuild:()=>false,content:'$depo LTC',reply:async s=>replies.push(s)};
+ try{
+   store.install([1,2].map(()=>publicKeys(generateMnemonic(wordlist))));
+   await handleMessage(member,store);
+   const w=store.watches()[0];assert.ok(dms[0].includes(w.address));
+   member.inGuild=()=>true;member.content='$b';
+   store.issue('bob','LTC');store.record({user:'bob',coin:'LTC'},'bobtx',700000000,'Confirmed');
+   store.record(w,'deposit1',40000000,'Pending');
+   await handleMessage(member,store);assert.match(replies.pop(),/No confirmed deposits/);
+   store.record(w,'deposit1',40000000,'Confirmed');
+   store.record(w,'deposit1',40000000,'Confirmed');
+   store.record(w,'deposit2',10000000,'Confirmed');store.record(w,'deposit3',200000000,'Pending');
+   store.record({user:'alice',coin:'ETH'},'ethdeposit',1000000000000000001n,'Confirmed');
+   store.close();store=openStore(path);
+   await handleMessage(member,store);
+   assert.equal(replies.pop(),'**Your confirmed deposits**\n1.000000000000000001 ETH\n0.5 LTC');
+   assert.equal(dms.length,1);
+   member.content='$b <@bob>';await handleMessage(member,store);assert.match(replies.pop(),/your own/);
+ }finally{store.close();rmSync(dir,{recursive:true,force:true});}
+});

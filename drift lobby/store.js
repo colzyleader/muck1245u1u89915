@@ -47,6 +47,14 @@ export function openStore(file){
      WHERE events.state!='Confirmed'`).run(w.user,w.coin,tx,String(amount),state);
  }
  return {db,install,issue,record,
+  confirmedDeposits:user=>{
+    const totals=new Map();
+    const rows=db.prepare("SELECT coin,amount FROM events WHERE user=? AND state='Confirmed' ORDER BY coin");
+    for(const {coin,amount} of rows.iterate(user)){
+      totals.set(coin,(totals.get(coin)??0n)+BigInt(amount));
+    }
+    return totals;
+  },
   watches:()=>db.prepare('SELECT * FROM watches ORDER BY coin,user').all(),
   cursor:w=>db.prepare("SELECT tx FROM cursors WHERE user=? AND coin=?").get(w.user,w.coin)?.tx,
   checkpoint:(w,tx)=>db.prepare("INSERT OR REPLACE INTO cursors VALUES(?,?,?)").run(w.user,w.coin,tx),

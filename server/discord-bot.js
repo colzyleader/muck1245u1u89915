@@ -31,7 +31,7 @@ const RANKS=[
 const ROLLERS=[{key:'roller',name:'🎩 High Roller',bet:500,color:0xa77bff},{key:'whale',name:'🐋 Whale',bet:1_000,color:0x3fa7ff}];
 const PERMS={admin:8n,manageChannels:16n,manageGuild:32n,view:1024n,send:2048n,embed:16384n,attach:32768n,history:65536n,manageRoles:268435456n};
 const BOT_PERMISSIONS=PERMS.manageChannels|PERMS.view|PERMS.send|PERMS.embed|PERMS.attach|PERMS.history|PERMS.manageRoles;
-const ALIASES={bj:'blackjack',cf:'coinflip',coin:'coinflip',hl:'hilo',bal:'balance',b:'balance',lb:'leaderboard',top:'leaderboard',
+const ALIASES={bj:'blackjack',cf:'coinflip',coin:'coinflip',hl:'hilo',bal:'balance',lb:'leaderboard',top:'leaderboard',
   r:'roulette',w:'wheel',d:'dice',duel:'flip',pf:'flip',stats:'profile',give:'tip',commands:'help',games:'guide',howto:'guide',how:'guide',setup:'server',rank:'ranks',roles:'ranks'};
 
 // The website's engine and tables, read from dist/ so the bot can never drift from the site.
