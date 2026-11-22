@@ -1,0 +1,14 @@
+{
+  "name": "driftlobby-chat-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DriftLobby chat relay and Discord bot. The Anthropic SDK is only needed for AI replies.",
+  "main": "chat-server.js",
+  "scripts": {
+    "start": "node chat-server.js",
+    "bot": "node discord-bot.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0"
+  }
+}

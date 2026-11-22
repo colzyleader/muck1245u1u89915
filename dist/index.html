@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0d0b16"><title>DriftLobby</title><meta name="description" content="A private, free-play arcade with Blackjack, Keno, and 12 more games."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23a688ff'/%3E%3Cpath fill='%23141122' d='M23 4 7 24h11l-2 12 18-22H22z'/%3E%3C/svg%3E"><style>
+#splash{display:none}
+.splashing{overflow:hidden}
+.splashing #splash{position:fixed;inset:0;z-index:1000;display:grid;place-content:center;justify-items:center;gap:22px;background:radial-gradient(ellipse at 50% 45%,#241b3a,#0d0c13 62%);transition:opacity .45s,transform .45s}
+.splashing #splash.done{opacity:0;transform:scale(1.06);pointer-events:none}
+.splashing .live-stats{visibility:hidden}
+.splash-mark{display:flex;gap:7px;height:54px;transform:skewX(-24deg)}
+.splash-mark i{width:9px;border-radius:2px;background:linear-gradient(#d2bfff,#8f6bff);transform-origin:bottom;animation:splash-bars 1s ease-in-out infinite}
+.splash-mark i:nth-child(2){animation-delay:.12s}.splash-mark i:nth-child(3){animation-delay:.24s}.splash-mark i:nth-child(4){animation-delay:.36s}.splash-mark i:nth-child(5){animation-delay:.48s}
+.splash-word{font:italic 1000 2rem/1 Inter,Arial,Helvetica,sans-serif;letter-spacing:-1.5px;color:#f8f7fc;animation:splash-in .7s ease-out both}
+.splash-word span{color:#c7b1ff}
+.splash-bar{width:170px;height:3px;border-radius:3px;background:#ffffff14;overflow:hidden}
+.splash-bar b{display:block;width:40%;height:100%;border-radius:3px;background:linear-gradient(90deg,transparent,#b395ff,#74f5c6);animation:splash-sweep 1.1s ease-in-out infinite}
+@keyframes splash-bars{0%,100%{transform:scaleY(.3);opacity:.5}50%{transform:scaleY(1);opacity:1}}
+@keyframes splash-in{from{opacity:0;transform:translateY(12px);letter-spacing:8px}to{opacity:1;transform:none;letter-spacing:-1.5px}}
+@keyframes splash-sweep{from{transform:translateX(-110%)}to{transform:translateX(280%)}}
+@media(prefers-reduced-motion:reduce){.splash-mark i,.splash-word,.splash-bar b{animation:none}}
+</style>
+<script>
+// Opening animation, shown once per browser tab session and for at least 1.3 seconds.
+(function(){
+  var root=document.documentElement,began=performance.now(),ended=false;
+  try{if(sessionStorage.getItem('driftlobby.splash'))return}catch(e){}
+  root.classList.add('splashing');
+  function end(){
+    if(ended)return;ended=true;
+    try{sessionStorage.setItem('driftlobby.splash','1')}catch(e){}
+    var splash=document.getElementById('splash');if(splash)splash.classList.add('done');
+    setTimeout(function(){root.classList.remove('splashing')},480);
+  }
+  window.addEventListener('drift:ready',function(){setTimeout(end,Math.max(0,1300-(performance.now()-began)))});
+  setTimeout(end,4000);
+})();
+</script>
+<link rel="stylesheet" href="style.css?v=9"><link rel="stylesheet" href="floor.css?v=14"><link rel="stylesheet" href="account.css?v=11"><link rel="stylesheet" href="showdowns.css?v=9"><link rel="stylesheet" href="profit.css?v=10"><link rel="stylesheet" href="wagers.css?v=14"><link rel="stylesheet" href="chat.css?v=6"><link rel="stylesheet" href="duels.css?v=8"><script src="chat-config.js?v=2" defer></script><script src="chat-pfps.js?v=mwr7e3uu" defer></script><script src="boot.js?v=1" defer></script></head>
+<body><div id="splash" aria-hidden="true"><div class="splash-mark"><i></i><i></i><i></i><i></i><i></i></div><div class="splash-word">DRIFT<span>LOBBY</span></div><div class="splash-bar"><b></b></div></div><aside id="chat" class="chat" aria-label="Lobby chat"><div class="chat-head"><i data-icon="chat"></i><h2>Chat</h2><span id="chatOnline" class="chat-online" hidden></span><button id="chatHide" class="iconbtn" aria-label="Hide chat" title="Hide chat"><i data-icon="x"></i></button></div><ol id="chatLog" class="chat-log" role="log" aria-label="Chat messages"></ol><p id="chatStatus" class="chat-status" role="status"></p><div id="chatFoot" class="chat-foot"></div></aside><button id="chatShow" class="chat-fab" aria-label="Open chat" aria-controls="chat" aria-expanded="false"><i data-icon="chat"></i></button>
+<header><div class="header-wrap"><a class="brand" href="#lobby" aria-label="DriftLobby arcade lobby"><span class="drift-mark" aria-hidden="true"></span>DRIFT<span class="brand-tail">LOBBY</span></a><nav aria-label="Main navigation"><button id="navLobby" class="nav active"><i data-icon="gamepad"></i>Lobby</button><button id="navFlips" class="nav"><i data-icon="coin"></i>Flips</button><button id="navHistory" class="nav"><i data-icon="history"></i>History</button><button id="navWallet" class="nav"><i data-icon="wallet"></i>Wallet</button></nav><button id="balanceLink" class="balance" aria-label="Open credit wallet"><i data-icon="coin"></i><b id="balance">1,000</b><span>credits</span></button><button id="settingsLink" class="gear" aria-label="Settings" title="Settings"><i data-icon="gear"></i></button><button id="profile" class="avatar" aria-label="Account menu" aria-haspopup="menu" aria-expanded="false"><i data-icon="user"></i></button><div id="accountMenu" class="account-menu" popover></div></div></header>
+<main id="lobby"><div class="lobby-heading"><span class="heading-icon"><i data-icon="gamepad"></i></span><h1>Arcade lobby</h1><button type="button" data-profit class="profit-launch" title="Show or hide the profit tracker"><i data-icon="profit"></i>Profit tracker</button><span class="mode"><span></span>Free play</span></div>
+<section class="showcase" aria-label="Featured games"><article class="hero hero-bj"><div class="hero-art"><img src="art/blackjack.webp" alt=""></div><div class="hero-copy"><span class="eyebrow">DEALER TABLE</span><h2>Blackjack</h2><p>Pull up a seat. Play your hand.</p><button class="primary" data-play="blackjack"><i data-icon="play"></i>Take a seat</button></div></article><article class="hero hero-keno"><div class="hero-art"><img src="art/keno.webp" alt=""></div><div class="hero-copy"><span class="eyebrow">NUMBER DRAW</span><h2>Keno</h2><p>Pick your numbers. Watch the draw.</p><button class="primary" data-play="keno"><i data-icon="play"></i>Play Keno</button></div></article></section>
+<section class="library"><div class="section-head"><h2><i data-icon="tiles"></i>Game library</h2><div class="shelf-tools"><label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><input id="search" type="search" placeholder="Find a game" aria-label="Find a game"></label><div class="tabs" aria-label="Filter games"><button id="all" aria-pressed="true">All games</button><button id="fav" aria-pressed="false"><i data-icon="heart"></i>Favorites</button></div></div></div><div id="cards" class="cards"></div></section>
+<footer><div><i data-icon="shield"></i>Play credits only <span>·</span> No cash value</div><button id="rules">Arcade rules <i data-icon="info"></i></button></footer><nav id="legalFooter" class="legal-links" aria-label="Policies"></nav></main>
+<main id="flips" hidden><div class="lobby-heading"><span class="heading-icon"><i data-icon="coin"></i></span><h1>Player flips</h1><button type="button" data-profit class="profit-launch" title="Show or hide the profit tracker"><i data-icon="profit"></i>Profit tracker</button></div><section id="duels" class="duels" aria-label="Player coin flips"></section></main>
+<main id="history" hidden><div class="lobby-heading"><span class="heading-icon"><i data-icon="history"></i></span><h1>Round history</h1><button type="button" data-profit class="profit-launch" title="Show or hide the profit tracker"><i data-icon="profit"></i>Profit tracker</button></div><div id="stats"></div><div id="records"></div></main>
+<main id="wallet" hidden><div class="lobby-heading"><span class="heading-icon"><i data-icon="wallet"></i></span><h1>Wallet</h1><button type="button" data-profit class="profit-launch" title="Show or hide the profit tracker"><i data-icon="profit"></i>Profit tracker</button></div><div id="walletContent"></div></main>
+<dialog id="dialog"><div class="dialog-heading"><span class="eyebrow" id="dlgKicker"></span><button type="button" data-profit class="profit-launch" title="Show or hide the profit tracker"><i data-icon="profit"></i>Profit tracker</button><button id="close" class="iconbtn" aria-label="Close dialog"><i data-icon="x"></i></button></div><h2 id="dlgTitle"></h2><div id="body"></div></dialog></body></html>

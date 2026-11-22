@@ -1,0 +1,43 @@
+.profit-launch{display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border:1px solid #4a3c59;border-radius:8px;background:#241e2c;color:#dfcaff;font:650 .85rem/1.25 system-ui,sans-serif}
+.lobby-heading .profit-launch,.dialog-heading .profit-launch{margin-left:auto}
+.lobby-heading .profit-launch+.mode{margin-left:0}
+.dialog-heading .profit-launch{display:none}
+.table-room .dialog-heading .profit-launch{display:inline-flex}
+.wallet-summary .profit-stat{margin-top:12px}
+.profit-stat small{display:block;color:#b6acbf;margin-top:4px}
+#stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+/* Draggable profit tracker. left/top are set from live-stats.js. */
+.live-stats{position:fixed;inset:auto;z-index:100;width:300px;max-width:calc(100vw - 16px);margin:0;padding:0;overflow:hidden;border:1px solid #3d3449;border-radius:14px;background:#1a1722;color:#f8f7fc;box-shadow:0 18px 50px #000b}
+.live-stats[hidden]{display:none}
+.live-stats.dragging{box-shadow:0 24px 70px #000d;border-color:#6a5a80}
+.live-head{display:flex;align-items:center;gap:8px;height:46px;padding:0 8px;background:#241f2e;border-bottom:1px solid #332b3e;cursor:grab;touch-action:none;user-select:none}
+.dragging .live-head{cursor:grabbing}
+.live-head h2{flex:1;margin:0;text-align:center;font-size:.98rem;letter-spacing:-.01em}
+.live-head button{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;color:#b9b0c4}
+.live-head button:hover{background:#ffffff12;color:#fff}
+.live-head svg{width:17px;height:17px}
+.live-body{padding:16px 16px 14px}
+.live-totals,.live-record{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.live-totals span{display:block;margin-bottom:3px;font-size:.84rem;font-weight:650;color:#aaa3b5}
+.live-totals b{display:flex;align-items:center;gap:6px;font-size:1.02rem;font-variant-numeric:tabular-nums}
+.live-totals svg{width:15px;height:15px;color:#ffd27e;flex:none}
+.live-stats .gain{color:#5fe08a}
+.live-stats .loss{color:#f0566f}
+.live-chart{margin:12px -4px 0}
+.live-chart svg{display:block;width:100%;height:auto}
+.live-zero{stroke:#ffffff1f;stroke-width:1}
+.live-axis{fill:#cfc8d8;font:650 11px system-ui,sans-serif}
+.live-hint{min-height:1.2em;margin:2px 0 10px;text-align:center;font-size:.76rem;color:#8f8899}
+.live-record div{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.live-record span{font-size:.9rem;font-weight:650;color:#aaa3b5}
+.live-record b{font-size:1rem;font-variant-numeric:tabular-nums}
+
+@media(max-width:620px){
+  #stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lobby-heading{flex-wrap:wrap}
+  .profit-launch{font-size:.78rem;gap:5px;padding:7px}
+  .table-room .dialog-heading .profit-launch{font-size:.75rem}
+  .table-room .dialog-heading .eyebrow{flex:1;letter-spacing:.06em}
+}
+@media(max-width:390px){#lobby .heading-icon{display:none}}

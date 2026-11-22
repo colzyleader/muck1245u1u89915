@@ -1,0 +1,9 @@
+# Private settings, saved balances and machine files stay out of the repository.
+.DS_Store
+.claude/
+node_modules/
+server/.env
+server/data.json
+server/bot-data.json
+server/bot-data.json.tmp
+server/bot-data.json.lock

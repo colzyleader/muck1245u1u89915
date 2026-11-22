@@ -1,0 +1,37 @@
+'use strict';
+// Profile pictures for the simulated chat characters, one per character.
+// Made by `node server/list-pfps.js` from the files in dist/art/pfps. Do not edit by hand.
+window.DRIFT_PFPS=[
+  "drift-pfp-01.jpg",
+  "drift-pfp-02.jpg",
+  "drift-pfp-03.jpg",
+  "drift-pfp-04.jpg",
+  "drift-pfp-05.jpg",
+  "drift-pfp-06.jpg",
+  "drift-pfp-07.jpg",
+  "drift-pfp-08.jpg",
+  "drift-pfp-09.jpg",
+  "drift-pfp-10.jpg",
+  "drift-pfp-11.jpg",
+  "drift-pfp-12.jpg",
+  "drift-pfp-13.jpg",
+  "drift-pfp-14.jpg",
+  "drift-pfp-15.jpg",
+  "drift-pfp-16.jpg",
+  "drift-pfp-17.jpg",
+  "drift-pfp-18.jpg",
+  "drift-pfp-19.jpg",
+  "drift-pfp-20.jpg",
+  "drift-pfp-21.jpg",
+  "drift-pfp-22.jpg",
+  "drift-pfp-23.jpg",
+  "drift-pfp-24.jpg",
+  "drift-pfp-25.jpg",
+  "drift-pfp-26.jpg",
+  "drift-pfp-27.jpg",
+  "drift-pfp-28.jpg",
+  "drift-pfp-29.jpg",
+  "drift-pfp-30.jpg",
+  "drift-pfp-31.jpg",
+  "drift-pfp-32.jpg"
+];
