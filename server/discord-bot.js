@@ -639,7 +639,13 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
       ]},
       {name:'🎖・roles',topic:'Server roles.',post:walletPage('🎖 Ranks and roles','Contact a server moderator with questions about roles.')}
     ]},
-    {name:'💬 LOUNGE',channels:[{name:'💬・general',topic:'Talk about anything.'}]}
+    {name:'💬 LOUNGE',channels:[{name:'💬・general',topic:'Talk about anything.'}]},
+    {name:'🔊 VOICE',channels:[{name:'Hangout',type:2},{name:'Chill Room',type:2}]},
+    {name:'🔒 ADMIN',lock:'admin',channels:[
+      {name:'admin-room',topic:'Private admin coordination.'},
+      {name:'admin-stats',topic:'Use /server stats for a private report from the saved arcade records.',
+        post:walletPage('Admin stats','Use `/server stats` for the current historical arcade totals, or select a player to view their saved balance privately.')}
+    ]}
   ];
   // Puts a channel's info pages in place: a page the bot has already posted is edited if its text
   // has changed, and a missing one is posted. Pages are matched by their title.
@@ -681,6 +687,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     store.save();
     const everyone={id:guild,type:0},bot={id:botId,type:1,allow:String(PERMS.view|PERMS.send|PERMS.embed|PERMS.attach|PERMS.history)};
     const overwrites=(lock,only)=>lock==='read'?[{...everyone,deny:String(PERMS.send)},bot]:
+      lock==='admin'?[{...everyone,deny:String(PERMS.view)}, {id:ADMIN_USER_ID,type:1,allow:String(PERMS.view|PERMS.send|PERMS.history)},bot]:
       lock==='rollers'?[{...everyone,deny:String(PERMS.view)},...ROLLERS.filter(tier=>!only||tier.key===only).map(tier=>({id:saved.roles[tier.key],type:0,allow:String(PERMS.view)})),bot]:undefined;
     const existing=await rest('GET','/guilds/'+guild+'/channels');
     for(const group of arcadeEnabled?arcadeLayout:walletLayout){
@@ -688,12 +695,16 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
       if(category)made.kept++;
       else{category=await rest('POST','/guilds/'+guild+'/channels',{name:group.name,type:4,permission_overwrites:overwrites(group.lock)});made.channels++}
       for(const want of group.channels){
-        let channel=existing.find(found=>found.type===0&&found.name===want.name);
+        const type=want.type??0;
+        let channel=existing.find(found=>found.type===type&&found.name===want.name);
         const former=!channel&&existing.find(found=>found.type===0&&(want.was||[]).includes(found.name));
         if(former){channel=await rest('PATCH','/channels/'+former.id,{name:want.name,topic:want.topic});made.renamed++}
-        if(channel)made.kept++;
+        if(channel){
+          if(group.lock==='admin')channel=await rest('PATCH','/channels/'+channel.id,{parent_id:category.id,permission_overwrites:overwrites(group.lock)});
+          made.kept++;
+        }
         else{
-          channel=await rest('POST','/guilds/'+guild+'/channels',{name:want.name,type:0,topic:want.topic,parent_id:category.id,permission_overwrites:overwrites(group.lock,want.only)});
+          channel=await rest('POST','/guilds/'+guild+'/channels',{name:want.name,type,topic:want.topic,parent_id:category.id,permission_overwrites:overwrites(group.lock,want.only)});
           made.channels++;
         }
         saved.channels[want.name]=channel.id;
@@ -712,8 +723,22 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
       '• Nothing of yours was deleted or changed. You can rename, move or remove anything I made.'].join('\n')};
   }
   commands.server={adminOnly:true,guildOnly:true,memberPermissions:String(PERMS.manageGuild),description:'Server tools for xyzwrl.',
-    options:[{type:1,name:'setup',description:'Create the DriftLobby channels and roles in this server (nothing is deleted).'}],
+    options:[{type:1,name:'setup',description:'Create the DriftLobby channels and roles in this server (nothing is deleted).'},
+      ...(!arcadeEnabled?[{type:1,name:'stats',description:'View saved arcade totals privately.',options:[
+        {type:6,name:'player',description:'Optional player whose saved arcade balance you want to see'}
+      ]}]:[])],
     run(ctx){
+      if(ctx.opts._sub==='stats'&&!arcadeEnabled){
+        if(!ctx.token)return whisper('Use the /server stats slash command for a private reply.');
+        const players=Object.values(data.players);
+        const houseNet=players.reduce((total,p)=>total+(p.wagered??0)-(p.returned??0),0);
+        const lines=['**Historical arcade results**','All-time house net: **'+fmt(houseNet)+' play credits**.'];
+        if(ctx.opts.player){
+          const saved=data.players[ctx.opts.player];
+          lines.push(saved?'Saved balance for <@'+ctx.opts.player+'>: **'+fmt(saved.credits)+' play credits**.':'No saved arcade record for this player.');
+        }
+        return whisper(lines.join('\n'));
+      }
       if(ctx.opts._sub!=='setup')return whisper('Use `'+prefix+'server setup`.');
       const trusted=ctx.permissions!=null&&Boolean(BigInt(ctx.permissions)&(PERMS.admin|PERMS.manageGuild));
       if(ctx.permissions!=null&&!trusted)return whisper('Only someone who can manage this server can run the setup.');
@@ -827,7 +852,13 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     const opts={};
     for(const option of interaction.data.options||[]){
       if(typeof option.name!=='string'||['__proto__','constructor'].includes(option.name))continue;
-      if(option.type===1)opts._sub=option.name;else opts[option.name]=option.value;
+      if(option.type===1){
+        opts._sub=option.name;
+        if(name==='server'&&option.name==='stats'){
+          const target=option.options?.find(value=>value.type===6&&value.name==='player');
+          if(target&&/^\d{5,25}$/.test(String(target.value)))opts.player=String(target.value);
+        }
+      }else opts[option.name]=option.value;
     }
     return launch(name,{user,id:user.id,opts,p:arcadeEnabled?player(user):null,resolved:interaction.data.resolved,token:interaction.token,
       guild:interaction.guild_id,roles:interaction.member?.roles,permissions:interaction.member?.permissions??(interaction.guild_id?'0':null)});

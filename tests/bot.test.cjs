@@ -706,3 +706,13 @@ test('hosted wallet server has no arcade commands or playable old buttons',()=>{
   assert.match(text(click(bot,colin,'a:'+colin.id+':coinflip')),/retired/);
   assert.deepEqual(bot.store.data.players,{});
 });
+
+test('admin stats are ephemeral and restricted to xyzwrl',()=>{
+  const bot=fresh({arcadeEnabled:false});
+  const admin=person('1070154044779266118','xyzwrl');
+  bot.store.data.players[colin.id]={credits:950,wagered:100,returned:50};
+  const query=user=>bot.handle({type:2,id:'1',token:'t',guild_id:'900',data:{name:'server',options:[{type:1,name:'stats',options:[{type:6,name:'player',value:colin.id}]}]},member:{user,permissions:'8'}});
+  assert.ok(hidden(query(admin)));
+  assert.match(text(query(admin)),/50 play credits[\s\S]*950 play credits/);
+  assert.match(text(query(rv)),/Only xyzwrl/);
+});
