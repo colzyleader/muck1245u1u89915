@@ -118,3 +118,44 @@ test('LTC reservations persist, include fees and exclude other members and pendi
    assert.equal(a.reserveLtcWithdrawal({...payment,id:'c',amount:500n}).state,'cancelled');
  }finally{a.close();b.close();rmSync(dir,{recursive:true,force:true});}
 });
+
+test('LTC signer verifies confirmed inputs, returns change and broadcasts the same signed bytes',async()=>{
+ const bitcoin=(await import('bitcoinjs-lib')).default;
+ const {createLtcSigner}=await import('./ltc-signer.js');
+ const api='https://explorer.example/api';
+ let outputs=[],parent,posted;
+ const fetchImpl=async(url,opts)=>{
+   if(url.endsWith('/blocks/tip/height'))return new Response('500');
+   if(url.endsWith('/utxo'))return Response.json(outputs);
+   if(url.endsWith('/hex'))return new Response(parent.toHex());
+   if(url===api+'/tx'&&opts.method==='POST'){
+     posted=opts.body;return new Response(bitcoin.Transaction.fromHex(posted).getId());
+   }
+   throw Error('Unexpected explorer request');
+ };
+ const cfg={api,fetchImpl,maxAmount:90000,maxFee:5000};
+ const signer=createLtcSigner(Buffer.alloc(32,1),cfg),receiver=createLtcSigner(Buffer.alloc(32,2),cfg);
+ const network={...bitcoin.networks.bitcoin,bech32:'ltc'};
+ parent=new bitcoin.Transaction();
+ parent.addInput(Buffer.alloc(32,3),0);
+ const source=bitcoin.address.toOutputScript(signer.address,network);
+ parent.addOutput(source,100000);
+ const out={txid:parent.getId(),vout:0,value:100000,status:{confirmed:true,block_height:496}};
+ outputs=[out];
+ await assert.rejects(signer.prepare(receiver.address,40000,2),/Insufficient confirmed/);
+ out.status.block_height=495;
+ outputs=[{...out,value:100001}];
+ await assert.rejects(signer.prepare(receiver.address,40000,2),/failed verification/);
+ outputs=[out,out];
+ await assert.rejects(signer.prepare(receiver.address,90100,2),/outside payout limits/);
+ await assert.rejects(signer.prepare(signer.address,40000,2),/payout wallet/);
+ const signed=await signer.prepare(receiver.address,40000,2);
+ const tx=bitcoin.Transaction.fromHex(signed.raw);
+ assert.equal(tx.ins.length,1);assert.equal(tx.ins[0].witness.length,2);
+ assert.equal(tx.outs[0].script.toString('hex'),bitcoin.address.toOutputScript(receiver.address,network).toString('hex'));
+ assert.equal(tx.outs[0].value,40000);
+ assert.ok(tx.outs[1].script.equals(source));
+ assert.equal(tx.outs[1].value,60000-signed.fee);
+ assert.equal(await signer.broadcast(signed),signed.txid);
+ assert.equal(posted,signed.raw);
+});
