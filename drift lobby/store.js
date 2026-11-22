@@ -8,7 +8,15 @@ export function openStore(file){
  CREATE TABLE IF NOT EXISTS pool(slot TEXT PRIMARY KEY,wallet TEXT NOT NULL,user TEXT UNIQUE);
  CREATE TABLE IF NOT EXISTS watches(user TEXT,coin TEXT,address TEXT,PRIMARY KEY(user,coin),UNIQUE(coin,address));
  CREATE TABLE IF NOT EXISTS cursors(user TEXT,coin TEXT,tx TEXT,PRIMARY KEY(user,coin));
- CREATE TABLE IF NOT EXISTS events(user TEXT,coin TEXT,tx TEXT,amount TEXT,state TEXT,sent TEXT DEFAULT '',message TEXT,PRIMARY KEY(user,coin,tx));`);
+ CREATE TABLE IF NOT EXISTS events(user TEXT,coin TEXT,tx TEXT,amount TEXT,state TEXT,sent TEXT DEFAULT '',message TEXT,PRIMARY KEY(user,coin,tx));
+ CREATE TABLE IF NOT EXISTS ltc_withdrawal_accounts(user TEXT PRIMARY KEY, prior_debits TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS ltc_withdrawals(
+   user TEXT NOT NULL, request_id TEXT NOT NULL, destination TEXT NOT NULL,
+   amount TEXT NOT NULL, fee TEXT NOT NULL, state TEXT NOT NULL
+     CHECK(state IN ('reserved','processing','broadcast','cancelled')),
+   txid TEXT UNIQUE, PRIMARY KEY(user,request_id)
+ );
+ CREATE INDEX IF NOT EXISTS ltc_withdrawals_user_state ON ltc_withdrawals(user,state);`);
  function transaction(fn){
    db.exec('BEGIN IMMEDIATE');try{const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}
  }
@@ -46,7 +54,60 @@ export function openStore(file){
      ON CONFLICT(user,coin,tx) DO UPDATE SET amount=excluded.amount,state=excluded.state
      WHERE events.state!='Confirmed'`).run(w.user,w.coin,tx,String(amount),state);
  }
- return {db,install,issue,record,
+ const sumAmounts=rows=>{let total=0n;for(const row of rows)total+=BigInt(row.amount);return total};
+ const confirmedLtc=user=>sumAmounts(db.prepare("SELECT amount FROM events WHERE user=? AND coin='LTC' AND state='Confirmed'").iterate(user));
+ const account=user=>db.prepare('SELECT prior_debits FROM ltc_withdrawal_accounts WHERE user=?').get(user);
+ const request=(user,id)=>db.prepare('SELECT * FROM ltc_withdrawals WHERE user=? AND request_id=?').get(user,id);
+ function withdrawalAvailable(user){
+   const row=account(user);
+   if(!row)return null;
+   const outgoing=db.prepare("SELECT amount,fee FROM ltc_withdrawals WHERE user=? AND state!='cancelled'").iterate(user);
+   let available=confirmedLtc(user)-BigInt(row.prior_debits);
+   for(const {amount,fee} of outgoing)available-=BigInt(amount)+BigInt(fee);
+   return available;
+ }
+ // The operator must reconcile old outgoing transfers before enabling a member.
+ function enableLtcWithdrawals(user,openingAvailable){
+   return transaction(()=>{
+     if(!db.prepare('SELECT 1 FROM pool WHERE user=?').get(user))throw Error('Withdrawals require an operator-managed wallet');
+     const total=confirmedLtc(user);
+     if(typeof openingAvailable!=='bigint'||openingAvailable<0n||openingAvailable>total)throw Error('Invalid reconciled balance');
+     db.prepare('INSERT INTO ltc_withdrawal_accounts VALUES(?,?)').run(user,String(total-openingAvailable));
+   });
+ }
+ function reserveLtcWithdrawal({user,id,destination,amount,fee}){
+   if(typeof id!=='string'||!id||id.length>128||typeof destination!=='string'||!destination||destination.length>128||
+      typeof amount!=='bigint'||amount<=0n||typeof fee!=='bigint'||fee<0n)throw Error('Invalid withdrawal request');
+   return transaction(()=>{
+     const existing=request(user,id);
+     if(existing){
+       if(existing.destination!==destination||existing.amount!==String(amount)||existing.fee!==String(fee))throw Error('Withdrawal request ID already used');
+       return existing;
+     }
+     const available=withdrawalAvailable(user);
+     if(available===null)throw Error('Withdrawals require a reconciled account');
+     if(available<amount+fee)throw Error('Insufficient available Litecoin');
+     db.prepare("INSERT INTO ltc_withdrawals(user,request_id,destination,amount,fee,state) VALUES(?,?,?,?,?,'reserved')")
+       .run(user,id,destination,String(amount),String(fee));
+     return request(user,id);
+   });
+ }
+ function transitionWithdrawal(user,id,from,to){
+   return db.prepare('UPDATE ltc_withdrawals SET state=? WHERE user=? AND request_id=? AND state=?').run(to,user,id,from).changes===1;
+ }
+ function markLtcBroadcast(user,id,txid){
+   if(typeof txid!=='string'||!/^[0-9a-f]{64}$/.test(txid))throw Error('Invalid Litecoin transaction ID');
+   return transaction(()=>{
+     const row=request(user,id);
+     if(row?.state==='broadcast'&&row.txid===txid)return row;
+     if(row?.state!=='processing')throw Error('Withdrawal is not processing');
+     db.prepare("UPDATE ltc_withdrawals SET state='broadcast',txid=? WHERE user=? AND request_id=?").run(txid,user,id);
+     return request(user,id);
+   });
+ }
+ return {db,install,issue,record,enableLtcWithdrawals,withdrawalAvailable,reserveLtcWithdrawal,markLtcBroadcast,
+  claimLtcWithdrawal:(user,id)=>transitionWithdrawal(user,id,'reserved','processing'),
+  cancelLtcWithdrawal:(user,id)=>transitionWithdrawal(user,id,'reserved','cancelled'),
   confirmedDeposits:user=>{
     const totals=new Map();
     const rows=db.prepare("SELECT coin,amount FROM events WHERE user=? AND state='Confirmed' ORDER BY coin");

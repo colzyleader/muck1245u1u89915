@@ -86,3 +86,35 @@ test('DM deposit assignment credits the same member in the server exactly once',
    member.content='$b <@bob>';await handleMessage(member,store);assert.match(replies.pop(),/your own/);
  }finally{store.close();rmSync(dir,{recursive:true,force:true});}
 });
+
+test('LTC reservations persist, include fees and exclude other members and pending deposits',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'depo-ledger-')),path=join(dir,'db');
+ const a=openStore(path),b=openStore(path);
+ try{
+   a.install([publicKeys(generateMnemonic(wordlist))]);
+   a.issue('alice','LTC');
+   assert.throws(()=>a.enableLtcWithdrawals('bob',0n),/operator-managed/);
+   a.record({user:'alice',coin:'LTC'},'1',10000,'Confirmed');
+   a.record({user:'alice',coin:'LTC'},'2',10000,'Pending');
+   a.record({user:'bob',coin:'LTC'},'3',10000,'Confirmed');
+   const payment={user:'alice',id:'a',destination:'validated-by-caller',amount:6500n,fee:500n};
+   assert.throws(()=>a.reserveLtcWithdrawal(payment),/reconciled/);
+   a.enableLtcWithdrawals('alice',8000n);
+   assert.equal(b.reserveLtcWithdrawal(payment).state,'reserved');
+   assert.equal(a.reserveLtcWithdrawal(payment).state,'reserved');
+   assert.throws(()=>a.reserveLtcWithdrawal({...payment,destination:'changed'}),/already used/);
+   assert.equal(b.withdrawalAvailable('alice'),1000n);
+   assert.throws(()=>a.reserveLtcWithdrawal({...payment,id:'b'}),/Insufficient/);
+   assert.equal(b.claimLtcWithdrawal('alice','a'),true);
+   assert.equal(a.claimLtcWithdrawal('alice','a'),false);
+   assert.equal(a.cancelLtcWithdrawal('alice','a'),false);
+   const txid='1'.repeat(64);
+   assert.equal(b.markLtcBroadcast('alice','a',txid).txid,txid);
+   assert.equal(a.markLtcBroadcast('alice','a',txid).state,'broadcast');
+   assert.equal(a.withdrawalAvailable('alice'),1000n);
+   a.reserveLtcWithdrawal({...payment,id:'c',amount:500n});
+   assert.equal(a.cancelLtcWithdrawal('alice','c'),true);
+   assert.equal(b.withdrawalAvailable('alice'),1000n);
+   assert.equal(a.reserveLtcWithdrawal({...payment,id:'c',amount:500n}).state,'cancelled');
+ }finally{a.close();b.close();rmSync(dir,{recursive:true,force:true});}
+});
