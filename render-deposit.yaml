@@ -1,0 +1,24 @@
+services:
+  - type: worker
+    name: muck-deposit-bot
+    runtime: node
+    plan: starter
+    region: oregon
+    rootDir: drift lobby
+    buildCommand: npm ci --omit=dev
+    startCommand: 'set -eu; umask 077; printf "%s" "${PUBLIC_POOL_JSON:?Set the public address pool}" > /var/data/public-pool.json; exec node server.js'
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: DATA_DIR
+        value: /var/data
+      - key: PUBLIC_POOL
+        value: /var/data/public-pool.json
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: PUBLIC_POOL_JSON
+        sync: false
+    disk:
+      name: muck-deposit-data
+      mountPath: /var/data
+      sizeGB: 1
