@@ -496,9 +496,10 @@ test('bot: ranks follow the total bet and high roller roles the biggest single b
   assert.match(text(run(bot,colin,'ranks')),/🐋 Whale · one bet of 1,000 or more/);
 });
 
-test('bot: server setup adds roles and channels once, only for someone who manages the server',async()=>{
+test('bot: server setup adds roles and channels once and is restricted to xyzwrl',async()=>{
+  const admin=person('1070154044779266118','xyzwrl');
   let made=0;
-  const guild={id:'900',owner_id:colin.id,roles:[{id:'900',name:'@everyone',permissions:'0'},{id:'r-mod',name:'Mod',permissions:'32'}]},channels=[],messages=[];
+  const guild={id:'900',owner_id:admin.id,roles:[{id:'900',name:'@everyone',permissions:'0'},{id:'r-mod',name:'Mod',permissions:'32'}]},channels=[],messages=[];
   const {calls,fetchImpl}=recorder(call=>{
     const path=call.url.split('/api/v10')[1];
     if(call.method==='GET'&&path==='/guilds/900')return guild;
@@ -518,11 +519,12 @@ test('bot: server setup adds roles and channels once, only for someone who manag
   const refused=run(bot,rv,'server',{},{options:[{type:1,name:'setup'}]});
   assert.equal(refused.task,undefined);assert.ok(hidden(refused));
   const typed=type(bot,rv,'$server setup');
-  assert.match((await typed.task()).description,/Only someone who can manage this server/);
+  assert.equal(typed.task,undefined);
+  assert.match(text(typed),/Only xyzwrl/);
   assert.equal(posts().length,0);
   assert.ok(hidden(bot.handle({type:2,id:'1',token:'t',data:{name:'server',options:[{type:1,name:'setup'}]},user:colin})));
   // The owner runs it.
-  const started=type(bot,colin,'$setup');
+  const started=type(bot,admin,'$setup');
   assert.match(text(started),/Setting up/);
   const done=await started.task();
   assert.match(done.description,/Made \*\*8\*\* roles and \*\*16\*\* channels\. Posted or updated 7 info pages\./);
@@ -550,9 +552,10 @@ test('bot: server setup adds roles and channels once, only for someone who manag
   assert.deepEqual(find('📖・how-to-play').permission_overwrites[0],{id:'900',type:0,deny:'2048'});
   assert.ok(calls.every(call=>['GET','POST'].includes(call.method)));
   assert.ok(messages.every(message=>!/\$odds|\$daily/.test(message.embeds[0].description)));
-  // Running it again finds everything in place and adds nothing. A moderator may run it too.
+  // A moderator is refused. Rerunning setup as xyzwrl keeps everything in place.
   const before=posts().length;
-  const again=await type(bot,rv,'$server setup',{member:{roles:['r-mod']}}).task();
+  assert.match(text(type(bot,rv,'$server setup',{member:{roles:['r-mod']}})),/Only xyzwrl/);
+  const again=await type(bot,admin,'$server setup').task();
   assert.match(again.description,/Made \*\*0\*\* roles and \*\*0\*\* channels \(24 were already here and were kept\)\.$/m);
   assert.equal(posts().length,before);
   assert.ok(calls.every(call=>['GET','POST'].includes(call.method)));
@@ -563,7 +566,7 @@ test('bot: server setup adds roles and channels once, only for someone who manag
   messages.splice(messages.findIndex(message=>message.embeds[0].title==='📜 Rules'),1);
   messages.push({id:'someone',channel_id:welcome.channel_id,author:{id:colin.id},embeds:[{title:'👋 Welcome to DriftLobby',description:'not the bot’s'}]});
   find('🎁・free-credits').name='🎁・daily-claims';
-  const refreshed=await type(bot,colin,'$server setup').task();
+  const refreshed=await type(bot,admin,'$server setup').task();
   assert.match(refreshed.description,/Renamed 1 of my channels\. Posted or updated 2 info pages\./);
   assert.doesNotMatch(welcome.embeds[0].description,/daily/);
   assert.equal(messages.find(message=>message.id==='someone').embeds[0].description,'not the bot’s');
@@ -572,7 +575,10 @@ test('bot: server setup adds roles and channels once, only for someone who manag
   assert.match(find('🎁・free-credits').topic,/\$refill/);
   assert.ok(calls.every(call=>call.method!=='DELETE'));
   const slash=bot.handle({type:2,id:'1',token:'t',guild_id:'900',data:{name:'server',options:[{type:1,name:'setup'}]},member:{user:rv,roles:[],permissions:'8'}});
-  assert.equal(typeof slash.task,'function');
+  assert.equal(slash.task,undefined);
+  assert.match(text(slash),/Only xyzwrl/);
+  const authorized=bot.handle({type:2,id:'1',token:'t',guild_id:'900',data:{name:'server',options:[{type:1,name:'setup'}]},member:{user:admin,roles:[],permissions:'32'}});
+  assert.equal(typeof authorized.task,'function');
   assert.equal(bot.definitions().find(def=>def.name==='server').default_member_permissions,'32');
   assert.match(bot.inviteLink(),/client_id=42&scope=bot\+applications\.commands&permissions=268553232$/);
 });

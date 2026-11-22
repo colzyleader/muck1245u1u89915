@@ -29,6 +29,7 @@ const RANKS=[
   {key:'gold',name:'🥇 Gold',at:25_000,color:0xffc83d},{key:'platinum',name:'💠 Platinum',at:100_000,color:0x6fe3d0},
   {key:'diamond',name:'💎 Diamond',at:500_000,color:0x5cc8ff},{key:'legend',name:'👑 Legend',at:2_000_000,color:0xff5fa2}];
 const ROLLERS=[{key:'roller',name:'🎩 High Roller',bet:500,color:0xa77bff},{key:'whale',name:'🐋 Whale',bet:1_000,color:0x3fa7ff}];
+const ADMIN_USER_ID='1070154044779266118';
 const PERMS={admin:8n,manageChannels:16n,manageGuild:32n,view:1024n,send:2048n,embed:16384n,attach:32768n,history:65536n,manageRoles:268435456n};
 const BOT_PERMISSIONS=PERMS.manageChannels|PERMS.view|PERMS.send|PERMS.embed|PERMS.attach|PERMS.history|PERMS.manageRoles;
 const ALIASES={bj:'blackjack',cf:'coinflip',coin:'coinflip',hl:'hilo',bal:'balance',lb:'leaderboard',top:'leaderboard',
@@ -520,7 +521,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     ...ROLLERS.map(tier=>tier.name+' · one bet of '+fmt(tier.bet)+' or more'),
     '',
     'Bigger bets win less often, and a bet over 1,500 cannot win in most games, so no role rewards one. `'+prefix+'guide` has the details.',
-    'Roles are handed out in servers where an admin has run '+prefix+'server setup.'].join('\n')});
+    'Roles are handed out in servers where xyzwrl has run '+prefix+'server setup.'].join('\n')});
   commands.ranks={description:'The ranks and high roller roles, and what it takes to earn each.',run:()=>say(ranksEmbed())};
   const helpEmbed=()=>({color:COLORS.brand,title:'🎮 DriftLobby',description:[
     'A play-credit arcade. Everyone starts with '+fmt(START)+' free credits. Commands work with `'+prefix+'` or as slash commands.',
@@ -538,7 +539,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
     '',
     '**Guide and ranks**',
     '`'+prefix+'guide` how every game works, and how bigger bets win less often · `'+prefix+'ranks` roles for how much you bet',
-    '`'+prefix+'server setup` (admins) builds the channels and roles',
+    '`'+prefix+'server setup` (xyzwrl only) builds the channels and roles',
     '',
     'Credits are free. There is nothing to deposit or buy, and credits cannot be withdrawn or cashed out.'+(siteUrl?'\nPlay in the browser too: '+siteUrl:'')].join('\n')});
   commands.help={description:'Every command, and how to get credits.',run:()=>say(helpEmbed())};
@@ -694,7 +695,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
       '• Keep my own role above those roles in Server Settings → Roles, or I cannot hand them out.',
       '• Nothing of yours was deleted or changed. You can rename, move or remove anything I made.'].join('\n')};
   }
-  commands.server={guildOnly:true,memberPermissions:String(PERMS.manageGuild),description:'Server tools for admins.',
+  commands.server={adminOnly:true,guildOnly:true,memberPermissions:String(PERMS.manageGuild),description:'Server tools for xyzwrl.',
     options:[{type:1,name:'setup',description:'Create the DriftLobby channels and roles in this server (nothing is deleted).'}],
     run(ctx){
       if(ctx.opts._sub!=='setup')return whisper('Use `'+prefix+'server setup`.');
@@ -739,6 +740,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
   }
   function startCommand(name,ctx){
     const cmd=commands[name],bet=ctx.opts.bet;
+    if(cmd.adminOnly&&ctx.id!==ADMIN_USER_ID)return whisper('Only xyzwrl can use this admin command.');
     if(cmd.guildOnly&&!ctx.guild)return whisper('Use this inside a server.');
     if(cmd.sized||cmd.round||cmd.bets||'bet' in ctx.opts){
       if(!Number.isInteger(bet)||bet<1||bet>MAX_BET)return whisper('Bet a whole number of credits, at least 1.');
