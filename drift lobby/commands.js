@@ -3,6 +3,10 @@ import { policy, displayAmount } from './watch.js';
 export async function handleMessage(m,store,check){
  if(m.author.bot)return;
  const [cmd,symbol='LTC',...extra]=m.content.trim().split(/\s+/);
+ if(cmd.toLowerCase()==='$withdraw'){
+   await m.reply('Automatic withdrawals are offline. No withdrawal was requested or sent. Use $b to view your confirmed deposits.');
+   return;
+ }
  if(cmd.toLowerCase()==='$b'){
    if(m.content.trim().split(/\s+/).length!==1){await m.reply('Type $b to see your own confirmed deposits.');return;}
    const totals=store.confirmedDeposits(m.author.id);
