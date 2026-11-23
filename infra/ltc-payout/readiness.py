@@ -3,7 +3,7 @@ import json
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-CLI = ["litecoin-cli", "-mainnet", "-conf=/dev/null", "-datadir=/var/data/litecoin"]
+CLI = ["litecoin-cli", "-chain=main", "-conf=/dev/null", "-datadir=/var/data/litecoin"]
 
 
 def synced():
