@@ -675,6 +675,10 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
   // Builds the roles and channels in one server. Anything already there with the same name is kept
   // and reused, so running it twice adds nothing; the only things it edits are a channel it made
   // under an earlier name (renamed) and its own info pages (brought up to date). It deletes nothing.
+  let pendingRoom;
+  function requestVerificationRoom(guild){
+    if(!pendingRoom)pendingRoom=prepareVerificationRoom(guild).catch(err=>log.error('Verification setup for '+guild+' (bot '+botId+'): '+err.message)).finally(()=>{pendingRoom=null});
+  }
   async function prepareVerificationRoom(guild) {
     const saved=data.guilds[guild]??={roles:{},channels:{}};
     const roles=await rest('GET','/guilds/'+guild+'/roles');
@@ -1071,9 +1075,11 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
         if(message.t==='READY'){
           session=message.d.session_id;resumeAt=message.d.resume_gateway_url||null;tries=0;botId=message.d.user?.id||botId;
           const servers=message.d.guilds?.length??0;
-          if(message.d.guilds?.some(g=>g.id==='1574108087013474314'))prepareVerificationRoom('1574108087013474314').catch(err=>log.error('Verification setup: '+err.message));
+          requestVerificationRoom('1574108087013474314');
           log.log('DriftLobby bot is online as '+(message.d.user?.username||'the bot')+' in '+servers+(servers===1?' server.':' servers.')+(servers?'':' Invite it to a server to use the commands.')+
             (readsMessages?' Commands: '+prefix+'help or /help.':' Commands: /help ('+(prefix||'typed')+' commands are off).'));
+        }else if(message.t==='GUILD_CREATE' && message.d.id==='1574108087013474314' && !data.guilds[message.d.id]?.channels?.verify){
+          requestVerificationRoom(message.d.id);
         }else if(message.t==='RESUMED')tries=0;
         else if(message.t==='INTERACTION_CREATE')onInteraction(message.d);
         else if(message.t==='MESSAGE_CREATE')onMessage(message.d);
