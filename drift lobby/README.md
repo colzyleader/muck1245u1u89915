@@ -34,3 +34,16 @@ Default data sources: Litecoin Space and mempool.space (Esplora), Solana JSON-RP
 ## Public deposit totals
 
 Type `$depo LTC` in a DM with the wallet bot to receive your assigned address. Send LTC from your wallet to that address. Once the watcher confirms the deposit, type `$b` in the server. The bot replies in that channel with the total confirmed deposits for your Discord ID, grouped by coin. Repeated scans of the same transaction count once. Totals represent recorded incoming deposits over time. Pending transfers and outgoing payments do not change them. Both bots must use the updated code, and the wallet bot must keep its existing SQLite database. The arcade bot uses `$bal` and `$balance` for play credits.
+
+## Simulated Discord withdrawals
+
+Use a local development bot and set `SIMULATED_WITHDRAWALS=1` in its environment. The simulation uses its own `withdrawal-simulation.sqlite` file under `DATA_DIR`. Each member starts with one mock unit of each supported coin. Fees are fixed mock estimates and the simulator has no wallet credentials or blockchain connections.
+
+1. Type `$withdraw LTC` in Discord, or select BTC, SOL, ETH, BNB, or AVAX.
+2. In DMs, enter `$amount 0.1` and then `$address DESTINATION`.
+3. Review the network, amount, fee and total. Send the `$confirm` command from the quote within 15 minutes.
+4. The worker completes the mock payout and DMs a `sim-…` transaction ID. In DMs, `$simbal LTC` shows mock available funds, reserved debits and completed debits including fees. Change the ticker to check another coin.
+
+Pending payouts and notification status survive a worker restart. A delivered Discord DM can be repeated if the process exits before recording delivery, but the simulated payout occurs only once. EVM address validation is the same on ETH, BNB Smart Chain, and Avalanche C-Chain, so review the network displayed in the quote.
+
+Run `npm test` to exercise all six networks, the Discord flow with mocked messages, and SQLite restart recovery.
