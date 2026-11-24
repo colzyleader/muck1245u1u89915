@@ -675,6 +675,28 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
   // Builds the roles and channels in one server. Anything already there with the same name is kept
   // and reused, so running it twice adds nothing; the only things it edits are a channel it made
   // under an earlier name (renamed) and its own info pages (brought up to date). It deletes nothing.
+  async function prepareVerificationRoom(guild) {
+    const saved=data.guilds[guild]??={roles:{},channels:{}};
+    const roles=await rest('GET','/guilds/'+guild+'/roles');
+    let role=roles.find(r=>r.id===saved.roles.siteVerified);
+    if(!role){
+      role=await rest('POST','/guilds/'+guild+'/roles',{name:'Verified',permissions:'0',mentionable:false});
+      saved.roles.siteVerified=role.id;
+      store.save();
+    }
+    const channels=await rest('GET','/guilds/'+guild+'/channels');
+    let channel=channels.find(c=>c.type===0 && (c.id===saved.channels.verify || c.name==='verify'));
+    if(!channel){
+      channel=await rest('POST','/guilds/'+guild+'/channels',{name:'verify',type:0,
+        topic:'DriftLobby account verification',
+        permission_overwrites:[{id:guild,type:0,allow:'1024',deny:'2048'},{id:botId,type:1,allow:String(PERMS.view|PERMS.send|PERMS.embed|PERMS.history)}]});
+    }
+    saved.channels.verify=channel.id;
+    store.save();
+    await postPages(channel.id,[{color:COLORS.brand,title:'Verify for DriftLobby',
+      description:'Complete the verification process provided by the server team here. After approval, sign in to DriftLobby with the same Discord account. Never post ID documents in this channel.'}]);
+    log.log('Verification room ready: guild='+guild+' channel='+channel.id+' role='+role.id);
+  }
   async function setupServer(guild,actor,trusted){
     const info=await rest('GET','/guilds/'+guild);
     const existingRoles=info.roles||await rest('GET','/guilds/'+guild+'/roles');
@@ -1049,6 +1071,7 @@ function createBot({token='',appId='',api='https://discord.com/api/v10',gateway=
         if(message.t==='READY'){
           session=message.d.session_id;resumeAt=message.d.resume_gateway_url||null;tries=0;botId=message.d.user?.id||botId;
           const servers=message.d.guilds?.length??0;
+          if(message.d.guilds?.some(g=>g.id==='1574108087013474314'))prepareVerificationRoom('1574108087013474314').catch(err=>log.error('Verification setup: '+err.message));
           log.log('DriftLobby bot is online as '+(message.d.user?.username||'the bot')+' in '+servers+(servers===1?' server.':' servers.')+(servers?'':' Invite it to a server to use the commands.')+
             (readsMessages?' Commands: '+prefix+'help or /help.':' Commands: /help ('+(prefix||'typed')+' commands are off).'));
         }else if(message.t==='RESUMED')tries=0;
